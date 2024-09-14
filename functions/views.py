@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse,JsonResponse
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
@@ -9,6 +9,8 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 import os
 import time
+import csv
+
 
 def run_selenium_script():
     download_dir = os.path.join(os.getcwd(), "downloads")
@@ -66,5 +68,54 @@ def index(request):
     try:
         run_selenium_script()
         return HttpResponse("Selenium script ran successfully!")
+    except Exception as e:
+        return HttpResponse(f"An error occurred: {str(e)}")
+def getattendence(request):
+    try:
+        download_dir = os.path.join(os.getcwd(), "downloads")
+        csv_file = None
+        for file in os.listdir(download_dir):
+            if file.startswith("Subjectwise") and file.endswith(".csv"):
+                csv_file = os.path.join(download_dir, file)
+                break
+
+        if not csv_file:
+            return HttpResponse("CSV file not found", status=404)
+
+        attendance_data = []
+        with open(csv_file, mode='r') as file:
+            csv_reader = csv.reader(file)
+            first_row = next(csv_reader)
+            if "TKM College of Engineering" in first_row[0]:
+                header = next(csv_reader)
+            else:
+                header = first_row
+
+            for row in csv_reader:
+                student_dict = {header[i]: row[i] for i in range(len(header))}
+                attendance_data.append(student_dict)
+
+        return JsonResponse(attendance_data, safe=False)
+    except Exception as e:
+        return HttpResponse(f"An error occurred: {str(e)}")
+def gettimetable(request):
+    try:
+        download_dir = os.path.join(os.getcwd(),"downloads")
+        csv_file = os.path.join(download_dir,"Time Table.csv")
+
+        if not os.path.exists(csv_file):
+            return HttpResponse("CSV file not found", status=404)
+
+        timetable = {}
+        with open(csv_file,mode='r') as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)  
+            headers = next(csv_reader)  
+
+            for row in csv_reader:
+                day = row[0]  
+                periods = {headers[i]: row[i] for i in range(1, len(row))}  
+                timetable[day] = periods
+        return JsonResponse(timetable, safe=False)   
     except Exception as e:
         return HttpResponse(f"An error occurred: {str(e)}")
