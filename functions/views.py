@@ -13,122 +13,6 @@ import csv
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-
-def run_selenium_script(username, password):
-    download_dir = os.path.join(os.getcwd(), "downloads")
-    chrome_options = webdriver.ChromeOptions()
-    chrome_prefs = {
-        "download.default_directory": download_dir,  
-        "download.prompt_for_download": False, 
-        "profile.default_content_settings.popups": 0,  
-        "directory_upgrade": True
-    }
-    chrome_options.add_experimental_option("prefs", chrome_prefs)
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920x1080")
-    driver1 = webdriver.Chrome(options=chrome_options, service=ChromeService(ChromeDriverManager().install()))
-    base_url = "https://tkmce.etlab.in/"
-    driver1.get(base_url)
-
-    time.sleep(5)
-    
-    login_form = WebDriverWait(driver1, 10).until(
-        EC.presence_of_element_located((By.ID, "LoginForm_username"))
-    ).send_keys(username)
-    password_form = driver1.find_element(By.ID, "LoginForm_password").send_keys(password + Keys.ENTER)
-
-    time.sleep(5)
-    
-    driver1.get(base_url + "student/timetable/")
-    time.sleep(5)
-    icon_download = driver1.find_element(By.CLASS_NAME, "icon-download").click()
-    time.sleep(5)
-
-    dropdowntt = Select(driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div[2]/form/div[2]/select"))
-    dropdowntt.select_by_visible_text("Excel (CSV)")
-    time.sleep(5)
-    download_tt = driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div[2]/form/div[3]/button").click()
-    time.sleep(5)
-
-    driver1.get(base_url + "ktuacademics/student/attendance/")
-    time.sleep(3)
-    attendance_select = driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/ul/li[4]/a").click()
-    time.sleep(3)
-    export_attendance = driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[1]/div/a").click()
-    time.sleep(3)
-    dropdown_attend = Select(driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[1]/form/div[2]/select"))
-    time.sleep(2)
-    dropdown_attend.select_by_visible_text("Excel (CSV)")
-    time.sleep(2)
-    download_attendance = driver1.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[1]/form/div[3]/button").click()
-    time.sleep(5)
-    
-    driver1.quit()
-
-@csrf_exempt
-def index(request):
-    if request.method == "POST":
-        try:
-            body = json.loads(request.body)
-            user = body.get('username')
-            password = body.get('password')
-            run_selenium_script(user,password)
-            return HttpResponse("Selenium script ran successfully!")
-        except Exception as e:
-            return HttpResponse(f"An error occurred: {str(e)}")
-    else:
-        return HttpResponse(f"an unsupported method")
-def getattendence(request):
-    try:
-        download_dir = os.path.join(os.getcwd(), "downloads")
-        csv_file = None
-        for file in os.listdir(download_dir):
-            if file.startswith("Subjectwise") and file.endswith(".csv"):
-                csv_file = os.path.join(download_dir, file)
-                break
-
-        if not csv_file:
-            return HttpResponse("CSV file not found", status=404)
-
-        attendance_data = []
-        with open(csv_file, mode='r') as file:
-            csv_reader = csv.reader(file)
-            first_row = next(csv_reader)
-            if "TKM College of Engineering" in first_row[0]:
-                header = next(csv_reader)
-            else:
-                header = first_row
-
-            for row in csv_reader:
-                student_dict = {header[i]: row[i] for i in range(len(header))}
-                attendance_data.append(student_dict)
-
-        return JsonResponse(attendance_data, safe=False)
-    except Exception as e:
-        return HttpResponse(f"An error occurred: {str(e)}")
-def gettimetable(request):
-    try:
-        download_dir = os.path.join(os.getcwd(),"downloads")
-        csv_file = os.path.join(download_dir,"Time Table.csv")
-
-        if not os.path.exists(csv_file):
-            return HttpResponse("CSV file not found", status=404)
-
-        timetable = {}
-        with open(csv_file,mode='r') as file:
-            csv_reader = csv.reader(file)
-            next(csv_reader)  
-            headers = next(csv_reader)  
-
-            for row in csv_reader:
-                day = row[0]  
-                periods = {headers[i]: row[i] for i in range(1, len(row))}  
-                timetable[day] = periods
-        return JsonResponse(timetable, safe=False)   
-    except Exception as e:
-        return HttpResponse(f"An error occurred: {str(e)}")
-
 def calculate_attendance(attended, total, threshold=75):
     percentage = (attended / total) * 100
     if percentage < threshold:
@@ -160,50 +44,113 @@ def calculate_attendance(attended, total, threshold=75):
             "type": "cut"
         }
 
-def get_attendance_improvement(request):
-    try:
-        download_dir = os.path.join(os.getcwd(), "downloads")
-        csv_file = None
-        for file in os.listdir(download_dir):
-            if file.startswith("Subjectwise") and file.endswith(".csv"):
-                csv_file = os.path.join(download_dir, file)
-                break
 
-        if not csv_file:
-            return HttpResponse("CSV file not found", status=404)
 
-        attendance_data = []
-        with open(csv_file, mode='r') as file:
-            csv_reader = csv.reader(file)
-            first_row = next(csv_reader)
-            if "TKM College of Engineering" in first_row[0]:
-                header = next(csv_reader)
-            else:
-                header = first_row
+def run_selenium_script(username, password):
+    download_dir = os.path.join(os.getcwd(), "downloads")
+    
+    chrome_options = webdriver.ChromeOptions()
+    chrome_prefs = {
+        "download.default_directory": download_dir,
+        "download.prompt_for_download": False,
+        "profile.default_content_settings.popups": 0,
+        "directory_upgrade": True
+    }
+    chrome_options.add_experimental_option("prefs", chrome_prefs)
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920x1080")
 
-            # Identify subject columns
-            subject_columns = [col for col in header if col.startswith(('22', '23', '24', '21', '20'))]
+    driver = webdriver.Chrome(options=chrome_options, service=ChromeService(ChromeDriverManager().install()))
+    
+    base_url = "https://tkmce.etlab.in/"
+    
+ 
+    driver.get(base_url)
+    time.sleep(5)
+    
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "LoginForm_username"))
+    ).send_keys(username)
+    driver.find_element(By.ID, "LoginForm_password").send_keys(password + Keys.ENTER)
+    
+    time.sleep(5)
+    
+   
+    driver.get(base_url + "student/timetable/")
+    time.sleep(5)
+   
+    driver.find_element(By.CLASS_NAME, "icon-download").click()
+    time.sleep(5)
+    
+    table = driver.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[2]/table")
+    time.sleep(5)
+    
+    rows = table.find_elements(By.TAG_NAME, "tr")
+    timetable = {}
+    
+    for row in rows:
+        cells = row.find_elements(By.TAG_NAME, "td")
+        if cells:
+            day = cells[0].text  
+            schedule = [cell.text for cell in cells[1:]] 
+            timetable[day] = schedule
 
-            for row in csv_reader:
-                student_dict = {header[i]: row[i] for i in range(len(header))}
-                student_attendance = {}
-                
-                for subject in subject_columns:
-                    if subject in student_dict:
-                        attendance_string = student_dict[subject]
-                        try:
-                            attended, total = map(int, attendance_string.split('(')[0].split('/'))
-                            result = calculate_attendance(attended, total)
-                            student_attendance[subject] = result
-                        except ValueError:
-                            student_attendance[subject] = {
-                                "error": "Invalid format",
-                                "current_attendance": attendance_string
-                            }
+    driver.get(base_url + "ktuacademics/student/attendance/")
+    time.sleep(3)
+    
+    driver.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/ul/li[4]/a").click()
+    time.sleep(3)
+    
+    export_attendance = driver.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[2]/center/table")
+    time.sleep(3)
+    heading_row = export_attendance.find_element(By.TAG_NAME, "thead")  # Extract thead for the heading row
+    heading_cells = heading_row.find_elements(By.TAG_NAME, "th")  # Extract all 'th' elements
+    headings = [cell.text for cell in heading_cells]  # Extract text from each heading cell
+    content_rows = export_attendance.find_element(By.TAG_NAME, "tbody").find_elements(By.TAG_NAME, "tr")
+    content = []
+    
+    for row in content_rows:
+        cells = row.find_elements(By.TAG_NAME, "td")
+        content_values = [cell.text for cell in cells]
+        content.append(content_values)
+    
+    attendance = {}
+    for i in range(len(content[0])):
+        attendance[headings[i]] = content[0][i]
+    
+    time.sleep(2)
+    driver.quit()
+    student_attendance={}
+    #Calculate the attendence
+    subject_columns = [col for col in headings if col.startswith(('22', '23', '24', '21', '20'))]
+    for subject in subject_columns:
+        if subject in attendance:
+            attendance_string = attendance[subject]
+            try:
+                attended, total = map(int, attendance_string.split('(')[0].split('/'))
+                result = calculate_attendance(attended, total)
+                student_attendance[subject] = result
+            except ValueError:
+                student_attendance[subject] = {
+                    "error": "Invalid format",
+                    "current_attendance": attendance_string
+                }
+    attendance['attendence'] = student_attendance
+    attendance["timatable"] = timetable
+    return attendance
 
-                student_dict['attendance'] = student_attendance
-                attendance_data.append(student_dict)
 
-        return JsonResponse(attendance_data, safe=False)
-    except Exception as e:
-        return HttpResponse(f"An error occurred: {str(e)}")
+@csrf_exempt
+def index(request):
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            user = body.get('username')
+            password = body.get('password')
+            attendence=run_selenium_script(user,password)
+            return JsonResponse(attendence)
+        except Exception as e:
+            return HttpResponse(f"An error occurred: {str(e)}")
+    else:
+        return HttpResponse(f"an unsupported method")
