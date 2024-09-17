@@ -10,9 +10,11 @@ from selenium.webdriver.support import expected_conditions as EC
 import os
 import time
 import csv
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 
-def run_selenium_script():
+def run_selenium_script(username, password):
     download_dir = os.path.join(os.getcwd(), "downloads")
     chrome_options = webdriver.ChromeOptions()
     chrome_prefs = {
@@ -33,8 +35,8 @@ def run_selenium_script():
     
     login_form = WebDriverWait(driver1, 10).until(
         EC.presence_of_element_located((By.ID, "LoginForm_username"))
-    ).send_keys("220904")
-    password_form = driver1.find_element(By.ID, "LoginForm_password").send_keys("Abhijith@2005" + Keys.ENTER)
+    ).send_keys(username)
+    password_form = driver1.find_element(By.ID, "LoginForm_password").send_keys(password + Keys.ENTER)
 
     time.sleep(5)
     
@@ -64,12 +66,19 @@ def run_selenium_script():
     
     driver1.quit()
 
+@csrf_exempt
 def index(request):
-    try:
-        run_selenium_script()
-        return HttpResponse("Selenium script ran successfully!")
-    except Exception as e:
-        return HttpResponse(f"An error occurred: {str(e)}")
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            user = body.get('username')
+            password = body.get('password')
+            run_selenium_script(user,password)
+            return HttpResponse("Selenium script ran successfully!")
+        except Exception as e:
+            return HttpResponse(f"An error occurred: {str(e)}")
+    else:
+        return HttpResponse(f"an unsupported method")
 def getattendence(request):
     try:
         download_dir = os.path.join(os.getcwd(), "downloads")
@@ -117,5 +126,84 @@ def gettimetable(request):
                 periods = {headers[i]: row[i] for i in range(1, len(row))}  
                 timetable[day] = periods
         return JsonResponse(timetable, safe=False)   
+    except Exception as e:
+        return HttpResponse(f"An error occurred: {str(e)}")
+
+def calculate_attendance(attended, total, threshold=75):
+    percentage = (attended / total) * 100
+    if percentage < threshold:
+        additional_classes = 0
+        new_attended = attended
+        new_total = total
+        while (new_attended / new_total) * 100 < threshold:
+            new_attended += 1
+            new_total += 1
+            additional_classes += 1
+        return {
+            "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
+            "classes_needed": additional_classes,
+            "projected_attendance": f"{new_attended}/{new_total} ({(new_attended / new_total) * 100:.2f}%)",
+            "type": "attend"
+        }
+    else:
+        cut_classes = 0
+        new_attended = attended
+        new_total = total
+        while (new_attended / new_total) * 100 > threshold:
+            new_total += 1
+            cut_classes += 1
+        new_total -= 1
+        return {
+            "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
+            "classes_needed": cut_classes -1,
+            "projected_attendance": f"{new_attended}/{new_total} ({(new_attended / new_total) * 100:.2f}%)",
+            "type": "cut"
+        }
+
+def get_attendance_improvement(request):
+    try:
+        download_dir = os.path.join(os.getcwd(), "downloads")
+        csv_file = None
+        for file in os.listdir(download_dir):
+            if file.startswith("Subjectwise") and file.endswith(".csv"):
+                csv_file = os.path.join(download_dir, file)
+                break
+
+        if not csv_file:
+            return HttpResponse("CSV file not found", status=404)
+
+        attendance_data = []
+        with open(csv_file, mode='r') as file:
+            csv_reader = csv.reader(file)
+            first_row = next(csv_reader)
+            if "TKM College of Engineering" in first_row[0]:
+                header = next(csv_reader)
+            else:
+                header = first_row
+
+            # Identify subject columns
+            subject_columns = [col for col in header if col.startswith(('22', '23', '24', '21', '20'))]
+
+            for row in csv_reader:
+                student_dict = {header[i]: row[i] for i in range(len(header))}
+                student_attendance = {}
+                
+                for subject in subject_columns:
+                    if subject in student_dict:
+                        attendance_string = student_dict[subject]
+                        try:
+                            attended, total = map(int, attendance_string.split('(')[0].split('/'))
+                            result = calculate_attendance(attended, total)
+                            student_attendance[subject] = result
+                        except ValueError:
+                            student_attendance[subject] = {
+                                "error": "Invalid format",
+                                "current_attendance": attendance_string
+                            }
+
+                student_dict['attendance'] = student_attendance
+                attendance_data.append(student_dict)
+
+        return JsonResponse(attendance_data, safe=False)
     except Exception as e:
         return HttpResponse(f"An error occurred: {str(e)}")

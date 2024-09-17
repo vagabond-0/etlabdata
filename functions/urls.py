@@ -20,5 +20,6 @@ from . import views
 urlpatterns = [
     path("", views.index, name="index"),
     path("attendence/",views.getattendence,name="attendence"),
-    path("timetable/",views.gettimetable,name="timetable")
+    path("timetable/",views.gettimetable,name="timetable"),
+    path("getclass/",views.get_attendance_improvement,name="class")
 ]
