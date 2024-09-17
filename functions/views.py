@@ -47,7 +47,6 @@ def calculate_attendance(attended, total, threshold=75):
 
 
 def run_selenium_script(username, password):
-    download_dir = os.path.join(os.getcwd(), "downloads")
     
     chrome_options = webdriver.ChromeOptions()
     chrome_prefs = {
