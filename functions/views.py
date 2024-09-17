@@ -50,7 +50,6 @@ def run_selenium_script(username, password):
     
     chrome_options = webdriver.ChromeOptions()
     chrome_prefs = {
-        "download.default_directory": download_dir,
         "download.prompt_for_download": False,
         "profile.default_content_settings.popups": 0,
         "directory_upgrade": True
