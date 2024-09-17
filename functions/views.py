@@ -13,6 +13,39 @@ import csv
 from django.views.decorators.csrf import csrf_exempt
 import json
 
+def calculate_attendance(attended, total, threshold=75):
+    percentage = (attended / total) * 100
+    if percentage < threshold:
+        additional_classes = 0
+        new_attended = attended
+        new_total = total
+        while (new_attended / new_total) * 100 < threshold:
+            new_attended += 1
+            new_total += 1
+            additional_classes += 1
+        return {
+            "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
+            "classes_needed": additional_classes,
+            "projected_attendance": f"{new_attended}/{new_total} ({(new_attended / new_total) * 100:.2f}%)",
+            "type": "attend"
+        }
+    else:
+        cut_classes = 0
+        new_attended = attended
+        new_total = total
+        while (new_attended / new_total) * 100 > threshold:
+            new_total += 1
+            cut_classes += 1
+        new_total -= 1
+        return {
+            "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
+            "classes_needed": cut_classes -1,
+            "projected_attendance": f"{new_attended}/{new_total} ({(new_attended / new_total) * 100:.2f}%)",
+            "type": "cut"
+        }
+
+
+
 def run_selenium_script(username, password):
     download_dir = os.path.join(os.getcwd(), "downloads")
     
@@ -24,22 +57,15 @@ def run_selenium_script(username, password):
         "directory_upgrade": True
     }
     chrome_options.add_experimental_option("prefs", chrome_prefs)
-
-    # Ensure headless mode with necessary arguments
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920x1080")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    
-    # Install ChromeDriver using webdriver-manager
-    driver = webdriver.Chrome(
-        options=chrome_options, 
-        service=ChromeService(ChromeDriverManager().install())
-    )
+
+    driver = webdriver.Chrome(options=chrome_options, service=ChromeService(ChromeDriverManager().install()))
     
     base_url = "https://tkmce.etlab.in/"
     
+ 
     driver.get(base_url)
     time.sleep(5)
     
@@ -50,15 +76,13 @@ def run_selenium_script(username, password):
     
     time.sleep(5)
     
-    # Navigate to student timetable page
+   
     driver.get(base_url + "student/timetable/")
     time.sleep(5)
-    
-    # Download timetable
+   
     driver.find_element(By.CLASS_NAME, "icon-download").click()
     time.sleep(5)
     
-    # Extract timetable details
     table = driver.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[2]/table")
     time.sleep(5)
     
@@ -72,7 +96,6 @@ def run_selenium_script(username, password):
             schedule = [cell.text for cell in cells[1:]] 
             timetable[day] = schedule
 
-    # Navigate to attendance page and extract data
     driver.get(base_url + "ktuacademics/student/attendance/")
     time.sleep(3)
     
@@ -81,11 +104,9 @@ def run_selenium_script(username, password):
     
     export_attendance = driver.find_element(By.XPATH, "/html/body/div[1]/div[4]/div[3]/div[3]/div/div/div[2]/div[2]/center/table")
     time.sleep(3)
-    
-    # Extract attendance table
-    heading_row = export_attendance.find_element(By.TAG_NAME, "thead")  
-    heading_cells = heading_row.find_elements(By.TAG_NAME, "th")  
-    headings = [cell.text for cell in heading_cells]  
+    heading_row = export_attendance.find_element(By.TAG_NAME, "thead")  # Extract thead for the heading row
+    heading_cells = heading_row.find_elements(By.TAG_NAME, "th")  # Extract all 'th' elements
+    headings = [cell.text for cell in heading_cells]  # Extract text from each heading cell
     content_rows = export_attendance.find_element(By.TAG_NAME, "tbody").find_elements(By.TAG_NAME, "tr")
     content = []
     
@@ -98,10 +119,10 @@ def run_selenium_script(username, password):
     for i in range(len(content[0])):
         attendance[headings[i]] = content[0][i]
     
-    # Close the driver
+    time.sleep(2)
     driver.quit()
-
-    student_attendance = {}
+    student_attendance={}
+    #Calculate the attendence
     subject_columns = [col for col in headings if col.startswith(('22', '23', '24', '21', '20'))]
     for subject in subject_columns:
         if subject in attendance:
@@ -115,11 +136,9 @@ def run_selenium_script(username, password):
                     "error": "Invalid format",
                     "current_attendance": attendance_string
                 }
-    
-    attendance['attendance'] = student_attendance
-    attendance["timetable"] = timetable
+    attendance['attendence'] = student_attendance
+    attendance["timatable"] = timetable
     return attendance
-
 
 
 @csrf_exempt
