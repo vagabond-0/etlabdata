@@ -18,6 +18,3 @@ application = get_wsgi_application()
 app = application
 
 
-ENV = os.getenv('ENV', 'production')
-if os.environ.get('ENV') == 'production':
-    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
