@@ -3,7 +3,7 @@ from django.http import HttpResponse,JsonResponse
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
@@ -47,21 +47,17 @@ def calculate_attendance(attended, total, threshold=75):
 
 
 def run_selenium_script(username, password):
-    download_dir = os.path.join(os.getcwd(), "downloads")
-    
-    chrome_options = webdriver.ChromeOptions()
-    chrome_prefs = {
-        "download.default_directory": download_dir,
-        "download.prompt_for_download": False,
-        "profile.default_content_settings.popups": 0,
-        "directory_upgrade": True
-    }
-    chrome_options.add_experimental_option("prefs", chrome_prefs)
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920x1080")
+    download_dir = "/app/downloads"
+    options = webdriver.ChromeOptions()
+    options.add_argument('--no-sandbox')
+    options.add_argument('--window-size=1920,1080')
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
 
-    driver = webdriver.Chrome(options=chrome_options, service=ChromeService(ChromeDriverManager().install()))
+# Initialize the Chrome WebDriver
+    driver = webdriver.Chrome(options=options)
+
+    
     
     base_url = "https://tkmce.etlab.in/"
     
