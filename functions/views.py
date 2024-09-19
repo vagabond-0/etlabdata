@@ -52,12 +52,10 @@ def run_selenium_script(username, password):
     options.add_argument('--no-sandbox')
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--headless')
-    
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
-
-# Initialize the Chrome WebDriver
-    driver = webdriver.Chrome(options=options)
+    options.add_argument('--no-first-run')
+    options.add_argument('--disable-software-rasterizer')
 
     
     download_dir = "/app/downloads"
