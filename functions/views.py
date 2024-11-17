@@ -13,9 +13,22 @@ import csv
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-def calculate_attendance(attended, total, threshold=75):
+def calculate_attendance(attended, total, threshold):
+    # Handle division by zero for initial calculation
+    if total == 0:
+        return {
+            "error": "Total classes cannot be zero.",
+            "current_attendance": "0/0 (0.00%)",
+            "classes_needed": 0,
+            "projected_attendance": "0/0 (0.00%)",
+            "type": "error"
+        }
+    
+    # Calculate the current attendance percentage
     percentage = (attended / total) * 100
+
     if percentage < threshold:
+        # Calculate how many more classes are needed to reach the threshold
         additional_classes = 0
         new_attended = attended
         new_total = total
@@ -23,6 +36,7 @@ def calculate_attendance(attended, total, threshold=75):
             new_attended += 1
             new_total += 1
             additional_classes += 1
+        
         return {
             "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
             "classes_needed": additional_classes,
@@ -30,23 +44,26 @@ def calculate_attendance(attended, total, threshold=75):
             "type": "attend"
         }
     else:
+        # Calculate how many classes can be skipped while still staying above the threshold
         cut_classes = 0
         new_attended = attended
         new_total = total
         while (new_attended / new_total) * 100 > threshold:
             new_total += 1
             cut_classes += 1
+        
+        # Adjust new_total back by one since the loop overshoots by one iteration
         new_total -= 1
+
         return {
             "current_attendance": f"{attended}/{total} ({percentage:.2f}%)",
-            "classes_needed": cut_classes -1,
+            "classes_needed": max(0, cut_classes - 1),
             "projected_attendance": f"{new_attended}/{new_total} ({(new_attended / new_total) * 100:.2f}%)",
             "type": "cut"
         }
 
 
-
-def run_selenium_script(username, password):
+def run_selenium_script(username, password,threshold):
     download_dir = "/app/downloads"
     options = webdriver.ChromeOptions()
     options.add_argument('--no-sandbox')
@@ -140,7 +157,7 @@ def run_selenium_script(username, password):
             attendance_string = attendance[subject]
             try:
                 attended, total = map(int, attendance_string.split('(')[0].split('/'))
-                result = calculate_attendance(attended, total)
+                result = calculate_attendance(attended, total,threshold)
                 student_attendance[subject] = result
             except ValueError:
                 student_attendance[subject] = {
@@ -159,7 +176,9 @@ def index(request):
             body = json.loads(request.body)
             user = body.get('username')
             password = body.get('password')
-            attendence=run_selenium_script(user,password)
+            threshold = body.get('threshold')
+            thres = int(threshold)
+            attendence=run_selenium_script(user,password,thres)
             return JsonResponse(attendence)
         except Exception as e:
             return HttpResponse(f"An error occurred: {str(e)}")
